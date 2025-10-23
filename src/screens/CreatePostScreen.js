@@ -15,8 +15,13 @@ import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
-import { db, auth } from '../services/firebase';
-import { addDoc, collection, serverTimestamp, GeoPoint } from 'firebase/firestore';
+import { db, auth, postsCol, userDoc } from '../services/firebase';
+import {
+  addDoc,
+  serverTimestamp,
+  GeoPoint,
+  onSnapshot,
+} from 'firebase/firestore';
 
 const PRIMARY = '#1f4582';
 const RADIUS = 10;
@@ -37,7 +42,7 @@ async function uploadToCloudinary(uri) {
 
   const res = await fetch(CLOUDINARY_URL, { method: 'POST', body: data });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error?.message || 'Image upload failed');
+  if (!res.ok) throw new Error(json?.error?.message || 'Image upload failed');
   return json.secure_url;
 }
 
@@ -52,6 +57,26 @@ export default function CreatePostScreen({ navigation, route }) {
   const [description, setDescription] = useState('');
   const [images, setImages] = useState([null, null, null]); // up to 3 images
   const [submitting, setSubmitting] = useState(false);
+
+  // auth & user status
+  const [uid, setUid] = useState(null);
+  const [userDisabled, setUserDisabled] = useState(false);
+
+  // watch auth
+  useEffect(() => {
+    const u = auth?.currentUser;
+    setUid(u?.uid || null);
+  }, []);
+
+  // live subscribe to user disabled flag (so Admin toggle reflects instantly)
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(userDoc(uid), (doc) => {
+      const data = doc.data();
+      setUserDisabled(Boolean(data?.disabled));
+    });
+    return unsub;
+  }, [uid]);
 
   // receive selection back from MapPicker
   useEffect(() => {
@@ -90,30 +115,46 @@ export default function CreatePostScreen({ navigation, route }) {
   };
 
   const onCreatePost = async () => {
+    if (!uid) {
+      alert('You must be signed in to create a post.');
+      return;
+    }
+    if (userDisabled) {
+      alert('Your account is inactive. You cannot create a post.');
+      return;
+    }
     if (!price || !contact || !space || !location) {
       alert('Please fill all required fields (price, contact, space, location).');
       return;
     }
+
+    // quick client-side validation polish
+    const priceNum = Number(price);
+    if (Number.isNaN(priceNum) || priceNum <= 0) {
+      alert('Enter a valid price.');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      const uid = auth?.currentUser?.uid || null;
 
       // upload chosen images
       const chosen = images.filter(Boolean);
       const urls = await Promise.all(chosen.map((u) => uploadToCloudinary(u)));
 
       // save to Firestore
-      await addDoc(collection(db, 'Posts'), {
+      await addDoc(postsCol, {
         type,
-        price,
-        contact,
-        space,
+        price: priceNum,
+        contact: String(contact).trim(),
+        space: String(space).trim(),
         location, // keep legacy text field too
         locationText: (location || '').trim(),
         coords: coords ? new GeoPoint(coords.lat, coords.lng) : null,
-        description,
+        description: (description || '').trim(),
         images: urls,
         ownerId: uid,
+        verified: false,             // new posts start unverified (optional)
         createdAt: serverTimestamp(),
       });
 
@@ -121,11 +162,20 @@ export default function CreatePostScreen({ navigation, route }) {
       navigation.replace('Home');
     } catch (err) {
       console.log(err);
-      alert(err.message);
+      alert(err?.message || 'Failed to create post.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const disabledBanner = userDisabled ? (
+    <View style={styles.blockBanner}>
+      <Ionicons name="alert-circle" size={18} color="#7f1d1d" />
+      <Text style={styles.blockText}>
+        Your account is <Text style={{ fontWeight: '800' }}>Inactive</Text>. Posting is disabled.
+      </Text>
+    </View>
+  ) : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -144,9 +194,11 @@ export default function CreatePostScreen({ navigation, route }) {
 
         {/* Form */}
         <View style={styles.body}>
+          {disabledBanner}
+
           {/* Type */}
           <View style={[styles.input, { paddingHorizontal: 0, overflow: 'hidden' }]}>
-            <Picker selectedValue={type} onValueChange={setType}>
+            <Picker selectedValue={type} onValueChange={setType} enabled={!userDisabled}>
               <Picker.Item label="For Boys" value="For Boys" />
               <Picker.Item label="For Girls" value="For Girls" />
               <Picker.Item label="Family" value="Family" />
@@ -162,6 +214,7 @@ export default function CreatePostScreen({ navigation, route }) {
             keyboardType="numeric"
             value={price}
             onChangeText={setPrice}
+            editable={!userDisabled}
           />
 
           {/* Contact */}
@@ -172,6 +225,7 @@ export default function CreatePostScreen({ navigation, route }) {
             keyboardType="phone-pad"
             value={contact}
             onChangeText={setContact}
+            editable={!userDisabled}
           />
 
           {/* Space */}
@@ -181,6 +235,7 @@ export default function CreatePostScreen({ navigation, route }) {
             placeholderTextColor="#9aa3af"
             value={space}
             onChangeText={setSpace}
+            editable={!userDisabled}
           />
 
           {/* Location (short input + square button) */}
@@ -191,8 +246,14 @@ export default function CreatePostScreen({ navigation, route }) {
               placeholderTextColor="#9aa3af"
               value={location}
               onChangeText={setLocation}
+              editable={!userDisabled}
             />
-            <TouchableOpacity onPress={onPickLocation} style={styles.locBtn} activeOpacity={0.85}>
+            <TouchableOpacity
+              onPress={onPickLocation}
+              style={[styles.locBtn, userDisabled && { opacity: 0.5 }]}
+              activeOpacity={0.85}
+              disabled={userDisabled}
+            >
               <Ionicons name="location" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
@@ -205,6 +266,7 @@ export default function CreatePostScreen({ navigation, route }) {
             multiline
             value={description}
             onChangeText={setDescription}
+            editable={!userDisabled}
           />
 
           {/* Image pickers */}
@@ -213,8 +275,9 @@ export default function CreatePostScreen({ navigation, route }) {
               <TouchableOpacity
                 key={i}
                 onPress={() => pickImage(i)}
-                style={styles.imageBox}
+                style={[styles.imageBox, userDisabled && { opacity: 0.6 }]}
                 activeOpacity={0.8}
+                disabled={userDisabled}
               >
                 {images[i] ? (
                   <Image
@@ -230,12 +293,17 @@ export default function CreatePostScreen({ navigation, route }) {
 
           {/* Submit */}
           <TouchableOpacity
-            style={[styles.cta, submitting && { opacity: 0.6 }]}
-            disabled={submitting}
+            style={[
+              styles.cta,
+              (submitting || userDisabled) && { opacity: 0.6 },
+            ]}
+            disabled={submitting || userDisabled}
             onPress={onCreatePost}
             activeOpacity={0.85}
           >
-            <Text style={styles.ctaText}>{submitting ? 'Saving…' : 'Create Post'}</Text>
+            <Text style={styles.ctaText}>
+              {userDisabled ? 'Posting Disabled' : (submitting ? 'Saving…' : 'Create Post')}
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -323,4 +391,19 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  // disabled banner
+  blockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fee2e2',
+    borderColor: '#fecaca',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  blockText: { color: '#7f1d1d', fontSize: 13, flex: 1 },
 });

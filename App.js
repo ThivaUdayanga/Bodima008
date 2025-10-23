@@ -13,6 +13,8 @@ import UserFavouriteScreen from './src/screens/UserFavouritScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
 import CreatePostScreen from './src/screens/CreatePostScreen'; 
 import MapPickerScreen from './src/screens/MapPickerScreen';
+import AdminManageUserScreen from './src/screens/AdminManageUserScreen';
+import AdminManagePostsScreen from './src/screens/AdminManagePosts.js';
 
 function SplashScreen({ navigation }) {
   useEffect(() => {
@@ -53,6 +55,8 @@ export default function App() {
         <Stack.Screen name="CreatePost" component={CreatePostScreen} />
 
         <Stack.Screen name="MapPicker" component={MapPickerScreen} />
+        <Stack.Screen name="AdminManageUsers" component={AdminManageUserScreen} />
+        <Stack.Screen name="AdminManagePosts" component={AdminManagePostsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

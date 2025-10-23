@@ -1,21 +1,15 @@
+// src/screens/AdminDashboard.js
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { logOut } from '../services/AuthService';
-import { onSnapshot, query, orderBy, updateDoc } from 'firebase/firestore';
+import { onSnapshot, query, orderBy, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { notificationDoc, notificationsCol, postDoc } from '../services/firebase';
 
 const PRIMARY = '#1f4582';
-const BTN = {
-  height: 56,
-  borderRadius: 12,
-  backgroundColor: PRIMARY,
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginVertical: 10,
-};
 
 export default function AdminDashboard({ navigation }) {
   const [notifs, setNotifs] = React.useState([]);
+
   const onLogout = async () => {
     try {
       await logOut();
@@ -26,7 +20,6 @@ export default function AdminDashboard({ navigation }) {
   };
 
   React.useEffect(() => {
-    // newest first
     const q = query(notificationsCol, orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       setNotifs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -37,9 +30,9 @@ export default function AdminDashboard({ navigation }) {
   const onAccept = async (n) => {
     try {
       // 1) mark post verified
-      await updateDoc(postDoc(n.postId), { verified: true });
+      await updateDoc(postDoc(n.postId), { verified: true, verifiedAt: serverTimestamp() });
       // 2) mark notification accepted
-      await updateDoc(notificationDoc(n.postId), { status: 'accepted' });
+      await updateDoc(notificationDoc(n.postId), { status: 'accepted', handledAt: serverTimestamp() });
     } catch (e) {
       alert(e?.message || 'Failed to accept.');
     }
@@ -47,7 +40,7 @@ export default function AdminDashboard({ navigation }) {
 
   const onDecline = async (n) => {
     try {
-      await updateDoc(notificationDoc(n.postId), { status: 'declined' });
+      await updateDoc(notificationDoc(n.postId), { status: 'declined', handledAt: serverTimestamp() });
     } catch (e) {
       alert(e?.message || 'Failed to decline.');
     }
@@ -65,18 +58,31 @@ export default function AdminDashboard({ navigation }) {
 
       {/* Body */}
       <View style={styles.body}>
-        <TouchableOpacity
-          style={BTN}
-          onPress={() => navigation.navigate('ManageUsers')}
-        >
-          <Text style={styles.btnText}>Manage Users</Text>
-        </TouchableOpacity>
-        +        {/* === Notifications (under Manage Users) === */}
+        {/* Tiles */}
+        <View style={styles.grid}>
+          <TouchableOpacity
+            style={[styles.tile, { backgroundColor: PRIMARY }]}
+            onPress={() => navigation.navigate('AdminManageUsers')}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.tileText}>Manage Users</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tile, { backgroundColor: PRIMARY }]}
+            onPress={() => navigation.navigate('AdminManagePosts')}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.tileText}>Manage Posts</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Notifications (under the buttons) */}
         <Text style={styles.sectionTitle}>Notifications</Text>
         {notifs.length === 0 ? (
           <Text style={styles.emptyText}>No notifications</Text>
         ) : (
-         <View>
+          <View>
             {notifs.map((n) => (
               <View key={n.id} style={styles.notifCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -99,7 +105,7 @@ export default function AdminDashboard({ navigation }) {
                     After Accept => show Inactive (red, disabled) */}
                 {n.status === 'accepted' ? (
                   <View style={{ flexDirection: 'row' }}>
-                    <View style={[styles.inactiveBtn]}>
+                    <View style={styles.inactiveBtn}>
                       <Text style={styles.inactiveText}>Inactive</Text>
                     </View>
                   </View>
@@ -107,7 +113,7 @@ export default function AdminDashboard({ navigation }) {
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity
                       onPress={() => onAccept(n)}
-                      style={[styles.acceptBtn]}
+                      style={styles.acceptBtn}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.acceptText}>Accept</Text>
@@ -115,7 +121,7 @@ export default function AdminDashboard({ navigation }) {
                     <View style={{ width: 10 }} />
                     <TouchableOpacity
                       onPress={() => onDecline(n)}
-                      style={[styles.declineBtn]}
+                      style={styles.declineBtn}
                       activeOpacity={0.8}
                       disabled={n.status === 'declined'}
                     >
@@ -127,7 +133,7 @@ export default function AdminDashboard({ navigation }) {
                 )}
               </View>
             ))}
-         </View>
+          </View>
         )}
       </View>
     </SafeAreaView>
@@ -162,13 +168,30 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  btnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
+
+  /* Tiles */
+  grid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
   },
-    sectionTitle: {
-    marginTop: 14,
+  tile: {
+    flex: 1,
+    height: 90,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  tileText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  /* Notifications */
+  sectionTitle: {
+    marginTop: 4,
     marginBottom: 8,
     fontSize: 16,
     fontWeight: '700',
@@ -190,19 +213,19 @@ const styles = StyleSheet.create({
   acceptBtn: {
     flex: 1, height: 44, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#16a34a', // green
+    backgroundColor: '#16a34a',
   },
   acceptText: { color: '#fff', fontWeight: '700' },
   declineBtn: {
     flex: 1, height: 44, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#ef4444', // red
+    backgroundColor: '#ef4444',
   },
   declineText: { color: '#fff', fontWeight: '700' },
   inactiveBtn: {
     flex: 1, height: 44, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#ef4444', // red (as requested)
+    backgroundColor: '#ef4444',
   },
   inactiveText: { color: '#fff', fontWeight: '700' },
 });
