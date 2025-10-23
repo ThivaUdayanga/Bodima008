@@ -38,15 +38,14 @@ export default function PostCard({
       style={[styles.card, variant === 'feed' && { borderColor: '#1d4ed8' }]}
       onLayout={(e) => setCardW(e.nativeEvent.layout.width)}
     >
-
-    {/* Verified badge */}
-      {post?.verified ? (
-        <View style={styles.verifiedBadge}>
-          <Text style={styles.verifiedText}>Verified</Text>
-        </View>
-      ) : null}
       {/* Images carousel */}
       <View style={{ width: '100%', height: 170 }}>
+        {/* VERIFIED BADGE */}
+        {post?.verified ? (
+          <View style={styles.verifiedBadge}>
+            <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
+          </View>
+        ) : null}
         {cardW && (
           <FlatList
             ref={listRef}
@@ -196,12 +195,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#10b981', // emerald
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
     zIndex: 2,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 999,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
-  verifiedText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-
 });

@@ -4,7 +4,9 @@ import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, FlatList } from
 import { Ionicons } from '@expo/vector-icons';
 import { logOut } from '../services/AuthService';
 import { auth, postsCol } from '../services/firebase';
-import { query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { query, where, orderBy, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { notificationDoc } from '../services/firebase';
+
 import PostCard from '../components/PostCard';
 
 const PRIMARY = '#1f4582';
@@ -15,7 +17,11 @@ export default function UserProfileScreen({ navigation }) {
   React.useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
-    const q = query(postsCol, where('ownerId', '==', uid), orderBy('createdAt', 'desc'));
+    const q = query(
+      postsCol,
+      where('ownerId', '==', uid),
+      orderBy('createdAt', 'desc')
+    );
     const unsub = onSnapshot(q, (snap) => {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
@@ -36,9 +42,35 @@ export default function UserProfileScreen({ navigation }) {
     alert('Edit: ' + post.id);
   };
 
-  const onBoost = (post) => {
-    // e.g., mark a "boost" flag in Firestore
-    alert('Boost: ' + post.id);
+  const onBoost = async (post) => {
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return alert('You must be logged in to boost.');
+
+      // Upsert a single notification per post
+      await setDoc(
+        notificationDoc(post.id),
+        {
+          type: 'boost_request',
+          postId: post.id,
+          ownerId: uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          status: 'pending', // 'pending' | 'accepted' | 'declined'
+
+          // Optional: snapshot fields to help Admin list view without extra reads
+          preview: {
+            location: post?.location || '',
+            price: post?.price ?? null,
+            image: Array.isArray(post?.images) ? post.images?.[0] : (post?.images || null),
+          },
+        },
+        { merge: true }
+      );
+      alert('Sent to Admin for review.');
+    } catch (e) {
+      alert(e?.message || 'Failed to send boost request.');
+    }
   };
 
   const go = (route) => navigation.replace(route);

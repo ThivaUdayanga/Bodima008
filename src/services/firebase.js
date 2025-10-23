@@ -33,3 +33,8 @@ export const postDoc  = (id) => doc(db, 'Posts', id);
 export const userDoc  = (uid) => doc(db, 'users', uid);
 export const userFavouritesCol = (uid) => collection(db, 'users', uid, 'favourites');
 export const userFavouriteDoc  = (uid, postId) => doc(db, 'users', uid, 'favourites', postId);
+
+// === NEW: admin notifications ===
+// One doc per postId so you don't create duplicates by tapping "Boost" twice.
+export const notificationsCol = collection(db, 'AdminNotifications');
+export const notificationDoc  = (postId) => doc(db, 'AdminNotifications', postId);
