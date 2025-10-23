@@ -1,13 +1,25 @@
 // src/screens/UserHomeScreen.js
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  SafeAreaView, FlatList,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  FlatList,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 import PostCard from '../components/PostCard';
-import { collection, onSnapshot, query as fsQuery, orderBy, setDoc, deleteDoc } from 'firebase/firestore';
+import {
+  collection,
+  onSnapshot,
+  query as fsQuery,
+  orderBy,
+  setDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import { db, auth, userFavouritesCol, userFavouriteDoc } from '../services/firebase';
 
 const PRIMARY = '#1f4582';
@@ -22,7 +34,7 @@ export default function UserHomeScreen({ navigation }) {
   useEffect(() => {
     const qPosts = fsQuery(collection(db, 'Posts'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(qPosts, (snap) => {
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPosts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return unsub;
   }, []);
@@ -32,7 +44,7 @@ export default function UserHomeScreen({ navigation }) {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     const unsub = onSnapshot(userFavouritesCol(uid), (snap) => {
-      const ids = new Set(snap.docs.map(d => d.id));
+      const ids = new Set(snap.docs.map((d) => d.id));
       setFavIds(ids);
     });
     return unsub;
@@ -51,7 +63,7 @@ export default function UserHomeScreen({ navigation }) {
   };
 
   // Optional simple search by location
-  const filtered = posts.filter(p =>
+  const filtered = posts.filter((p) =>
     (p.location || '').toLowerCase().includes(searchText.toLowerCase())
   );
 
@@ -60,10 +72,11 @@ export default function UserHomeScreen({ navigation }) {
       <FlatList
         data={filtered}
         keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: 12, paddingBottom: 96 }}
+        // No horizontal padding, so the AppBar is full-bleed
+        contentContainerStyle={{ paddingBottom: 96 }}
         ListHeaderComponent={
           <>
-            {/* App bar */}
+            {/* App bar (no white frame because list has no side padding) */}
             <View style={styles.topBar}>
               <TouchableOpacity
                 style={styles.circleBtn}
@@ -95,12 +108,14 @@ export default function UserHomeScreen({ navigation }) {
           </>
         }
         renderItem={({ item }) => (
-          <PostCard
-            post={item}
-            variant="feed"
-            isFavorite={favIds.has(item.id)}
-            onToggleFavorite={toggleFav}
-          />
+          <View style={styles.cardGutter}>
+            <PostCard
+              post={item}
+              variant="feed"
+              isFavorite={favIds.has(item.id)}
+              onToggleFavorite={toggleFav}
+            />
+          </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyArea}>
@@ -134,26 +149,72 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   circleBtn: {
-    height: 30, width: 30, borderRadius: 15, backgroundColor: '#365a95',
-    alignItems: 'center', justifyContent: 'center',
+    height: 30,
+    width: 30,
+    borderRadius: 15,
+    backgroundColor: '#365a95',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  appTitle: { color: '#fff', fontWeight: '700', fontSize: 16, flex: 1, textAlign: 'center' },
-  searchRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 10, alignItems: 'center' },
+  appTitle: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  searchRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginTop: 10,
+    alignItems: 'center',
+  },
   searchBox: {
-    flex: 1, flexDirection: 'row', backgroundColor: '#f3f4f6',
-    borderColor: '#d1d5db', borderWidth: 1, borderRadius: RADIUS, paddingHorizontal: 12,
-    height: 44, alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    borderColor: '#d1d5db',
+    borderWidth: 1,
+    borderRadius: RADIUS,
+    paddingHorizontal: 12,
+    height: 44,
+    alignItems: 'center',
   },
   filterBtn: {
-    marginLeft: 8, height: 44, width: 44, borderRadius: 10, borderWidth: 1,
-    borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
+    marginLeft: 8,
+    height: 44,
+    width: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
+
+  // Add spacing around each card since the FlatList no longer has side padding
+  cardGutter: {
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+
   emptyArea: { padding: 16, alignItems: 'center', justifyContent: 'center', minHeight: 180 },
   emptyText: { color: '#6b7280' },
+
   bottomNav: {
-    position: 'absolute', left: 0, right: 0, bottom: 0, height: 56,
-    borderTopWidth: 1, borderTopColor: '#e5e7eb', backgroundColor: '#fff',
-    flexDirection: 'row', paddingHorizontal: 28, alignItems: 'center', justifyContent: 'space-between',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 56,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   navItem: { padding: 8 },
 });

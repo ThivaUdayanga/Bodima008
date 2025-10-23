@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Picker } from '@react-native-picker/picker';
 import { signUp } from '../services/AuthService';
 
@@ -19,146 +19,158 @@ const RADIUS = 10;
 
 export default function RegisterScreen({ navigation }) {
   const [firstname, setFirstname] = useState('');
-  const [lastname, setLastname] = useState('');
-  const [email, setEmail]       = useState('');
-  const [mobile, setMobile]     = useState('');
-  const [nic, setNic]           = useState('');
-  const [password, setPassword] = useState('');
+  const [lastname, setLastname]   = useState('');
+  const [email, setEmail]         = useState('');
+  const [mobile, setMobile]       = useState('');
+  const [nic, setNic]             = useState('');
+  const [password, setPassword]   = useState('');
   const [rpassword, setRPassword] = useState('');
-  const [role, setRole]         = useState('User'); // "User" | "Admin"
+  const [role, setRole]           = useState('User'); // "User" | "Admin"
 
   const onRegister = async () => {
-    alert('Registering ...'); 
-  try {
-    if (!firstname || !lastname || !email || !password || !rpassword) {
-      return alert('Please fill all required fields');
+    alert('Registering ...');
+    try {
+      if (!firstname || !lastname || !email || !password || !rpassword) {
+        return alert('Please fill all required fields');
+      }
+      if (password !== rpassword) {
+        return alert('Passwords do not match');
+      }
+
+      await signUp({
+        email: email.trim(),
+        password,
+        firstName: firstname,
+        lastName: lastname,
+        role,
+        mobile,
+        nic,
+      });
+
+      alert('Account created. Please login.');
+      navigation.replace('Login');
+    } catch (e) {
+      console.log(e);
+      alert(e.message);
     }
-    if (password !== rpassword) {
-      return alert('Passwords do not match');
-    }
-
-    await signUp({
-      email: email.trim(),
-      password,
-      firstName: firstname,
-      lastName: lastname,
-      role,
-      mobile,
-      nic,
-    });
-
-    alert('Account created. Please login.');
-    navigation.replace('Login');
-  } catch (e) {
-    console.log(e);
-    alert(e.message);
-  }
-};
-
+  };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={{ flex: 1, backgroundColor: '#fff' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      contentContainerStyle={{ flexGrow: 1 }}
+      enableOnAndroid
+      enableAutomaticScroll
+      extraScrollHeight={24}              // pushes focused input above keyboard
+      keyboardShouldPersistTaps="handled" // let taps on inputs pass while keyboard is open
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        {/* Top blue banner with logo */}
-        <View style={styles.banner}>
-          <Image
-            source={require('../../assets/favicon.png')}
-            resizeMode="contain"
-            style={styles.logo}
-          />
-        </View>
-
-        {/* Body */}
-        <View style={styles.body}>
-          <Text style={styles.title}>Register</Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="First name"
-            placeholderTextColor="#9aa3af"
-            value={firstname}
-            onChangeText={setFirstname}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Last name"
-            placeholderTextColor="#9aa3af"
-            value={lastname}
-            onChangeText={setLastname}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="E-mail"
-            placeholderTextColor="#9aa3af"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Mobile Number"
-            placeholderTextColor="#9aa3af"
-            keyboardType="phone-pad"
-            value={mobile}
-            onChangeText={setMobile}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="NIC/ Passport"
-            placeholderTextColor="#9aa3af"
-            value={nic}
-            onChangeText={setNic}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#9aa3af"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Re enter Password"
-            placeholderTextColor="#9aa3af"
-            secureTextEntry
-            value={rpassword}
-            onChangeText={setRPassword}
-          />
-
-          {/* Role dropdown */}
-          <View style={[styles.input, { paddingHorizontal: 0, overflow: 'hidden' }]}>
-            <Picker selectedValue={role} onValueChange={setRole}>
-              <Picker.Item label="User" value="User" />
-              <Picker.Item label="Admin" value="Admin" />
-            </Picker>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
+          {/* Top blue banner with logo */}
+          <View style={styles.banner}>
+            <Image
+              source={require('../../assets/favicon.png')}
+              resizeMode="contain"
+              style={styles.logo}
+            />
           </View>
 
-          <TouchableOpacity style={styles.cta} onPress={onRegister} activeOpacity={0.8}>
-            <Text style={styles.ctaText}>Register</Text>
-          </TouchableOpacity>
+          {/* Body */}
+          <View style={styles.body}>
+            <Text style={styles.title}>Register</Text>
 
-          <TouchableOpacity
-            onPress={() => navigation.replace('Login')}
-            style={{ marginTop: 14, alignSelf: 'center' }}
-          >
-            <Text style={styles.linkText}>
-              Already I have an account. <Text style={{ fontWeight: '700' }}>Login</Text>
-            </Text>
-          </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="First name"
+              placeholderTextColor="#9aa3af"
+              value={firstname}
+              onChangeText={setFirstname}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Last name"
+              placeholderTextColor="#9aa3af"
+              value={lastname}
+              onChangeText={setLastname}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="E-mail"
+              placeholderTextColor="#9aa3af"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Mobile Number"
+              placeholderTextColor="#9aa3af"
+              keyboardType="phone-pad"
+              value={mobile}
+              onChangeText={setMobile}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="NIC/ Passport"
+              placeholderTextColor="#9aa3af"
+              value={nic}
+              onChangeText={setNic}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#9aa3af"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Re enter Password"
+              placeholderTextColor="#9aa3af"
+              secureTextEntry
+              value={rpassword}
+              onChangeText={setRPassword}
+              returnKeyType="done"
+            />
+
+            {/* Role dropdown */}
+            <View style={[styles.input, { paddingHorizontal: 0, overflow: 'hidden', justifyContent: 'center' }]}>
+              <Picker selectedValue={role} onValueChange={setRole}>
+                <Picker.Item label="User" value="User" />
+                <Picker.Item label="Admin" value="Admin" />
+              </Picker>
+            </View>
+
+            <TouchableOpacity style={styles.cta} onPress={onRegister} activeOpacity={0.8}>
+              <Text style={styles.ctaText}>Register</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.replace('Login')}
+              style={{ marginTop: 14, alignSelf: 'center' }}
+            >
+              <Text style={styles.linkText}>
+                Already I have an account. <Text style={{ fontWeight: '700' }}>Login</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -178,6 +190,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 22,
+    paddingBottom: 24, // a little bottom space helps on tiny screens
   },
   title: {
     fontSize: 22,
